@@ -1,9 +1,21 @@
 ---
 title: "Capitol Reef Photo Data Summary"
-author: "Abigail Finn"
+author: "IA Student Analyst Team"
 date: "2024-02-01"
-output: html_document
+output: 
+  prettydoc::html_pretty:
+    theme: cayman
 ---
+```{r, include=FALSE}
+# Set CRAN mirror before installing packages
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Install and load the necessary packages
+if (!requireNamespace("prettydoc", quietly = TRUE)) {
+  install.packages("prettydoc")
+}
+library(prettydoc)
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
