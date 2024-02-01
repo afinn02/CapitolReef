@@ -1,0 +1,60 @@
+---
+title: "Capitol Reef Photo Data Summary"
+author: "Abigail Finn"
+date: "2024-02-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include=FALSE}
+library(readxl)
+library(dplyr)
+library(openxlsx)
+library(RColorBrewer)
+library(viridis)
+library(ggplot2)
+```
+
+```{r, include=FALSE}
+file_path <- "PhotoWildlifeData_UMichDataShare_12042023.xlsx"
+sheet_names <- excel_sheets(file_path)
+all_dataframes <- list()
+for (sheet in sheet_names) {
+  df <- read_excel(file_path, sheet = sheet)
+  all_dataframes[[sheet]] <- df
+}
+
+photoData <- all_dataframes[['PhotoData']]
+siteLocations <- all_dataframes[['SiteLocations']]
+metaData <- all_dataframes[['Metadata']]
+
+```
+## Capitol Reef Camera Data
+```{r, include= FALSE}
+photoData$DateTime <- as.POSIXct(photoData$DateTime, format="%Y-%m-%d %H:%M:%S")
+
+max_date <- max(photoData$DateTime)
+min_date <- min(photoData$DateTime)
+
+min_date <- as.Date(min_date)
+max_date <- as.Date(max_date)
+```
+The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r min_date` and `r max_date`.
+
+```{r}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, include=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -4,6 +4,7 @@ install.packages("dplyr")
 install.packages("openxlsx")
 install.packages("RColorBrewer")
 install.packages('viridis')
+install.packages("ggplot2")
 
 #Necessary libraries
 library(readxl)
@@ -11,6 +12,7 @@ library(dplyr)
 library(openxlsx)
 library(RColorBrewer)
 library(viridis)
+library(ggplot2)
 
 
 #file_path <- file.path("PhotoWildlifeData_UMichDataShare_12042023.xlsx")
@@ -27,17 +29,10 @@ photoData <- all_dataframes[['PhotoData']]
 siteLocations <- all_dataframes[['SiteLocations']]
 metaData <- all_dataframes[['Metadata']]
 
-#Barplot of the different animals seen at each location:
-unique_species <- unique(photoData$Species1)
-num_colors <- length(unique_species)
-palette <- viridis(n = num_colors)
-species_color_vector <- palette[as.factor(photoData$Species1)]
-#species_color_vector <- species_colors[as.factor(photoData$Species1)]
-barplot(table(photoData$Species1),
-        xlab = "Species1",
-        ylab = "Frequency",
-        main = "Total Number of Species Observed",
-        col = species_color_vector)
-#legend('topright', legend = unique_species, fill = species_color_vector)
+#Barplot of the overall count of animals
+photoData$Species1 <- factor(photoData$Species1, levels = names(sort(table(photoData$Species1), decreasing = TRUE)))
+ggplot(photoData, aes( y= Species1)) +
+  geom_bar(fill = palette) +
+  labs(title = "Overall Count of Species Recorded", y = "Species", x = "Count")
 
-       
+
