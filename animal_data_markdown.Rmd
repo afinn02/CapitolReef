@@ -54,8 +54,11 @@ min_date <- min(photoData$DateTime)
 
 min_date <- as.Date(min_date)
 max_date <- as.Date(max_date)
+
+locations <- unique(photoData$RegionSite)
+cameras <- unique(photoData$Camera)
 ```
-The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r min_date` and `r max_date`.
+The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r min_date` and `r max_date`. It includes a summary from `r length(locations)` locations and `r length(cameras)` different cameras.
 
 ```{r}
 
