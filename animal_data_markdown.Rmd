@@ -1,7 +1,7 @@
 ---
 title: "Capitol Reef Photo Data Summary"
 author: "IA Student Analyst Team"
-date: "2024-02-01"
+date: "`r format(Sys.Date(), '%m/%d/%Y')`"
 output: 
   prettydoc::html_pretty:
     theme: cayman
@@ -14,6 +14,8 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 if (!requireNamespace("prettydoc", quietly = TRUE)) {
   install.packages("prettydoc")
 }
+if (!require("kableExtra")) install.packages('kableExtra')
+library(kableExtra)
 library(prettydoc)
 ```
 
@@ -44,9 +46,11 @@ photoData <- all_dataframes[['PhotoData']]
 siteLocations <- all_dataframes[['SiteLocations']]
 metaData <- all_dataframes[['Metadata']]
 
+metrics <- read_excel('Metrics_CameraData_capitolReefNP.xlsx')
+
 ```
-## Capitol Reef Camera Data
-```{r, include= FALSE}
+## Overview: Capitol Reef Camera Data
+```{r, include=FALSE}
 photoData$DateTime <- as.POSIXct(photoData$DateTime, format="%Y-%m-%d %H:%M:%S")
 
 max_date <- max(photoData$DateTime)
@@ -58,18 +62,58 @@ max_date <- as.Date(max_date)
 locations <- unique(photoData$RegionSite)
 cameras <- unique(photoData$Camera)
 ```
-The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r min_date` and `r max_date`. It includes a summary from `r length(locations)` locations and `r length(cameras)` different cameras.
+The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s).
 
-```{r}
 
+## Bighorn Sheet Monitoring:
+
+#Percentage of Bighorn Sheep detection by gender:
+The following graph demonstrates the overall detection of Bighorn Sheep throughout all recorded locations: 
+`r locations` between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. Repeats are standardized by counting one detection per two-hours to account for animals that hang around the cameras.
+
+```{r, include=FALSE}
+desired_species = 'Bighorn sheep'
+sheep <- photoData[(photoData$Species1 == desired_species), ]
+
+filter_rows <- function(data) {
+  data %>%
+    arrange(RegionSite, DateTime) %>% 
+    group_by(RegionSite) %>%           
+    filter(DateTime - lag(DateTime, default = first(DateTime)) >= 7200)  # Keep rows with a time difference of at least 2 hours
+}
+
+sheep_standardize <- filter_rows(sheep)
 ```
 
-## Including Plots
+```{r, echo = FALSE}
 
-You can also embed plots, for example:
+sheep_standardize$Sex_Species1 <- ifelse(sheep_standardize$Sex_Species1 %in% c('Male', 'Female'), sheep_standardize$Sex_Species1, 'Unknown/Other')
 
-```{r pressure, include=FALSE}
-plot(pressure)
+genders <- unique(sheep_standardize$Sex_Species1)
+
+
 ```
+```{r, echo = FALSE}
+coul <- brewer.pal(length(genders), "Set2")
+counts <- table(sheep_standardize$Sex_Species1)
+midpoints <- barplot(counts, main="Total Count of Bighorn Sheep Detection by Sex",
+   xlab="Sex",
+   ylab= 'Total Count',
+   col=coul,
+   ylim=c(0, max(counts) + 10)
+   )
+text(midpoints, counts, labels=counts, pos=3, cex=0.8)
+```
+```{r, echo=FALSE}
+total_counts <- sum(counts)
+percentages <- round(100 * counts / total_counts, 1)
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#lables with percentages
+labels <- paste(names(counts), "-", percentages, "%", sep="")
+
+# Plot pie chart
+pie(counts, labels = labels, col = brewer.pal(length(counts), "Set2"),
+    main="Percentage of Total Bighorn Sheep Detection by Sex")
+
+
+```
