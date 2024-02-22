@@ -125,7 +125,9 @@ pie(counts, labels = labels, col = brewer.pal(length(counts), "Set2"),
 
 ```
 
-### Percentage of Big Horn Sheep by Year
+### Parkwide Annual Detection of Bighorn Sheep by Gender
+
+The following has the percentage of bighorn sheep detection by gender for the years recorded in the provided files.
 
 ```{r,fig.width= 8, echo=FALSE}
 #Percentage of BHS (Year)
@@ -153,15 +155,13 @@ ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.7) + # Use dodge to place bars side by side
   geom_text(aes(label = paste(percent, "%")), position = position_dodge(width = 0.6), vjust = -0.25, size=3) +
   scale_fill_brewer(palette = "Set3", name = "Gender") + # Set a color palette and name the legend as "Gender"
-  labs(title = "Percentage of Big Horn Sheep Sightings by Year and Gender (Parkwide)",
+  labs(title = "Annual Percentage of Bighorn Sheep by Year and Gender (Parkwide)",
        x = "Year", 
        y = "Percentage") +
   theme_minimal() + # Use a minimal theme for a cleaner look
   theme(legend.title = element_text(size = 12), # Adjust legend title size
         legend.text = element_text(size = 10), # Adjust legend text size
         plot.title = element_text(hjust = -0.5)) # Center the plot title
-
-
 
 ```
 
