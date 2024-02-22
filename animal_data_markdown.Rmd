@@ -15,8 +15,11 @@ if (!requireNamespace("prettydoc", quietly = TRUE)) {
   install.packages("prettydoc")
 }
 if (!require("kableExtra")) install.packages('kableExtra')
+if (!require('plyr')) install.packages('plyr')
 library(kableExtra)
 library(prettydoc)
+library(dplyr)
+library(ggplot2)
 ```
 
 ```{r setup, include=FALSE}
@@ -59,22 +62,26 @@ min_date <- min(photoData$DateTime)
 min_date <- as.Date(min_date)
 max_date <- as.Date(max_date)
 
-locations <- unique(photoData$RegionSite)
+locations <- c(unique(photoData$RegionSite))
 cameras <- unique(photoData$Camera)
 ```
-The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s).
 
+The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s).  
+<br>
+NOTE: Repeats are standardized by counting one detection per two-hours to account for animals that hang around the cameras.
 
+*** 
 ## Bighorn Sheet Monitoring:
 
-#Percentage of Bighorn Sheep detection by gender:
-The following graph demonstrates the overall detection of Bighorn Sheep throughout all recorded locations: 
-`r locations` between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. Repeats are standardized by counting one detection per two-hours to account for animals that hang around the cameras.
+### Percentage of Bighorn Sheep detection by gender:
+
+The following graph demonstrates the overall detection of Bighorn Sheep throughout all recorded locations between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. 
 
 ```{r, include=FALSE}
 desired_species = 'Bighorn sheep'
 sheep <- photoData[(photoData$Species1 == desired_species), ]
 
+#This function records rows of sheep once for two hour intervals
 filter_rows <- function(data) {
   data %>%
     arrange(RegionSite, DateTime) %>% 
@@ -96,7 +103,7 @@ genders <- unique(sheep_standardize$Sex_Species1)
 ```{r, echo = FALSE}
 coul <- brewer.pal(length(genders), "Set2")
 counts <- table(sheep_standardize$Sex_Species1)
-midpoints <- barplot(counts, main="Total Count of Bighorn Sheep Detection by Sex",
+midpoints <- barplot(counts, main="Overall Count of Bighorn Sheep Detection by Sex",
    xlab="Sex",
    ylab= 'Total Count',
    col=coul,
@@ -113,7 +120,49 @@ labels <- paste(names(counts), "-", percentages, "%", sep="")
 
 # Plot pie chart
 pie(counts, labels = labels, col = brewer.pal(length(counts), "Set2"),
-    main="Percentage of Total Bighorn Sheep Detection by Sex")
+    main="Overall Percentage of Bighorn Sheep Detection by Sex")
 
 
 ```
+
+### Percentage of Big Horn Sheep by Year
+
+```{r,fig.width= 8, echo=FALSE}
+#Percentage of BHS (Year)
+
+# aggregate counts by year and sex
+sheep_standardize$Year <- as.numeric(format(as.POSIXct(sheep_standardize$DateTime, tz = "UTC"), "%Y"))
+unique_years <- unique(sheep_standardize$Year)
+unique_years <- sort(unique_years)
+
+yearly_totals <- sheep_standardize %>%
+  dplyr::group_by(Year) %>%
+  dplyr::summarise(total_counts = n(), .groups = 'drop')
+
+# Then, calculate counts per Sex_Species1 within each year
+detailed_counts <- sheep_standardize %>%
+  dplyr::group_by(Year, Sex_Species1) %>%
+  dplyr::summarise(count = n(), .groups = 'drop')
+
+# Join the totals with the detailed counts to calculate percentages
+plot_df <- detailed_counts %>%
+  left_join(yearly_totals, by = "Year") %>%
+  mutate(percent = round(100 * count / total_counts, 1))
+
+ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
+  geom_bar(stat = "identity", position = position_dodge(), width = 0.7) + # Use dodge to place bars side by side
+  geom_text(aes(label = paste(percent, "%")), position = position_dodge(width = 0.6), vjust = -0.25, size=3) +
+  scale_fill_brewer(palette = "Set3", name = "Gender") + # Set a color palette and name the legend as "Gender"
+  labs(title = "Percentage of Big Horn Sheep Sightings by Year and Gender (Parkwide)",
+       x = "Year", 
+       y = "Percentage") +
+  theme_minimal() + # Use a minimal theme for a cleaner look
+  theme(legend.title = element_text(size = 12), # Adjust legend title size
+        legend.text = element_text(size = 10), # Adjust legend text size
+        plot.title = element_text(hjust = -0.5)) # Center the plot title
+
+
+
+```
+
+
