@@ -5,6 +5,7 @@ date: "`r format(Sys.Date(), '%m/%d/%Y')`"
 output: 
   prettydoc::html_pretty:
     theme: cayman
+    toc: true
 ---
 ```{r, include=FALSE}
 # Set CRAN mirror before installing packages
@@ -16,10 +17,14 @@ if (!requireNamespace("prettydoc", quietly = TRUE)) {
 }
 if (!require("kableExtra")) install.packages('kableExtra')
 if (!require('plyr')) install.packages('plyr')
+if (!require('tidyverse')) install.packages('tidyverse')
+if (!require('plotly')) install.packages('plotly')
+library(tidyverse)
 library(kableExtra)
 library(prettydoc)
 library(dplyr)
 library(ggplot2)
+library(plotly)
 ```
 
 ```{r setup, include=FALSE}
@@ -37,7 +42,10 @@ library(ggplot2)
 ```
 
 ```{r, include=FALSE}
+##MODIFY FILE PATH HERE
 file_path <- "PhotoWildlifeData_UMichDataShare_12042023.xlsx"
+
+
 sheet_names <- excel_sheets(file_path)
 all_dataframes <- list()
 for (sheet in sheet_names) {
@@ -71,7 +79,8 @@ The following file is a summary of the data captured from motion sensor cameras 
 NOTE: Repeats are standardized by counting one detection per two-hours to account for animals that hang around the cameras.
 
 *** 
-## Bighorn Sheet Monitoring:
+
+## Bighorn Sheep Monitoring:
 
 ### Percentage of Bighorn Sheep detection by gender:
 
@@ -94,7 +103,7 @@ sheep_standardize <- filter_rows(sheep)
 
 ```{r, echo = FALSE}
 
-sheep_standardize$Sex_Species1 <- ifelse(sheep_standardize$Sex_Species1 %in% c('Male', 'Female'), sheep_standardize$Sex_Species1, 'Unknown/Other')
+sheep_standardize$Sex_Species1 <- ifelse(sheep_standardize$Sex_Species1 %in% c('Male', 'Female'), sheep_standardize$Sex_Species1, 'Unknown')
 
 genders <- unique(sheep_standardize$Sex_Species1)
 
@@ -125,7 +134,9 @@ pie(counts, labels = labels, col = brewer.pal(length(counts), "Set2"),
 
 ```
 
-### Percentage of Big Horn Sheep by Year
+### Parkwide Annual Detection of Bighorn Sheep by Sex
+
+The following has the percentage of bighorn sheep detection by gender for the years recorded in the provided files.
 
 ```{r,fig.width= 8, echo=FALSE}
 #Percentage of BHS (Year)
@@ -149,11 +160,11 @@ plot_df <- detailed_counts %>%
   left_join(yearly_totals, by = "Year") %>%
   mutate(percent = round(100 * count / total_counts, 1))
 
-ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
+p <- ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.7) + # Use dodge to place bars side by side
   geom_text(aes(label = paste(percent, "%")), position = position_dodge(width = 0.6), vjust = -0.25, size=3) +
   scale_fill_brewer(palette = "Set3", name = "Gender") + # Set a color palette and name the legend as "Gender"
-  labs(title = "Percentage of Big Horn Sheep Sightings by Year and Gender (Parkwide)",
+  labs(title = "Annual Percentage of Bighorn Sheep by Year and Gender (Parkwide)",
        x = "Year", 
        y = "Percentage") +
   theme_minimal() + # Use a minimal theme for a cleaner look
@@ -161,8 +172,425 @@ ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
         legend.text = element_text(size = 10), # Adjust legend text size
         plot.title = element_text(hjust = -0.5)) # Center the plot title
 
-
+p_interactive <- ggplotly(p, tooltip = c("percent", "Sex_Species1"))
+# Display the interactive plot
+p_interactive
 
 ```
 
+### Parkwide Annual & Monthly Detection of Bighorn Sheep by Sex
+
+The following has the percentage of bighorn sheep detection by gender specified by the year and months recorded in the provided files. the years and months recorded in the provided files.
+
+```{r,fig.width= 8, include=FALSE}
+#Percentage of BHS (Year and Month)
+
+# extract the month
+sheep_standardize$Month <- as.numeric(format(as.POSIXct(sheep_standardize$DateTime, tz = "UTC"), "%m"))
+
+unique_months <- unique(sheep_standardize$Month)
+unique_months <- sort(unique_months)
+
+#Yearly totals
+yearly_totals <- sheep_standardize %>%
+  dplyr::group_by(Year) %>%
+  dplyr::summarise(total_counts = n(), .groups = 'drop')
+
+#monthly totals
+monthly_totals <- sheep_standardize %>%
+  dplyr::group_by(Year, Month) %>%
+  dplyr::summarize(total_counts = n(), .groups = 'drop')
+
+# Calculate detailed counts by year and month for each sex
+detailed_counts <- sheep_standardize %>%
+  group_by(Year, Month, Sex_Species1) %>%
+  summarise(count = n(), .groups = 'drop')
+
+# Join the totals with the detailed counts for annual data
+plot_df_annual <- detailed_counts %>%
+  group_by(Year, Sex_Species1) %>%
+  summarise(count = sum(count), .groups = 'drop') %>%
+  left_join(yearly_totals, by = "Year") %>%
+  mutate(percent = round(100 * count / total_counts, 1))
+
+# Join the totals with the detailed counts for monthly data
+plot_df_monthly <- detailed_counts %>%
+  left_join(yearly_totals, by = c("Year")) %>%
+  mutate(percent = round(100 * count / total_counts, 1))
+
+```
+
+
+```{r, echo=FALSE}
+#This piece of code allows us to fill in the months that are missing with 0s
+complete_months <- expand.grid(
+  Year = unique(plot_df_monthly$Year),
+  Month = factor(1:12, labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")),
+  Sex_Species1 = unique(plot_df_monthly$Sex_Species1)
+) 
+
+plot_df_monthly$Month <- factor(plot_df_monthly$Month, levels = 1:12, labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+plot_df_monthly_complete <- complete_months %>%
+  left_join(plot_df_monthly, by = c("Year", "Month", "Sex_Species1")) %>%
+  replace_na(list(count = 0, percent = NA))  # Adjust with the appropriate column names
+
+dodge_width <- 0.7
+
+p <- ggplot(plot_df_monthly_complete, aes(x = Month, y = percent, fill = Sex_Species1)) + 
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  facet_wrap(~Year, ncol = 1, scales = "free_y") + 
+  scale_fill_brewer(palette = "Set3", name = "Gender") + 
+  labs(title = "Monthly Percentage of Bighorn Sheep Detections by Gender and Year",
+       x = "Month", 
+       y = "Percentage") + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text( vjust = 1, hjust=1))
+
+
+
+p_interactive <- ggplotly(p) 
+                          #tooltip = c("percent", "Sex_Species1"))
+
+# Display the interactive plot
+p_interactive
+```
+
+```{r}
+ggplotly(p)
+```
+
+
+
+### Regional Detection of Bighorn Sheep by Sex
+
+The following has the percentage of bighorn sheep detection by gender for the regions in the provided files.
+
+```{r, include = FALSE}
+
+# Calculate total counts for the entire park
+total_region_sightings <- sum(sheep_standardize$Count_Species1)
+
+# Calculate counts and percent for each region and sex against the park total
+sheep_gender_by_region <- sheep_standardize %>%
+  group_by(Region, Sex_Species1) %>%
+  summarise(count = sum(Count_Species1), .groups = 'drop') %>%
+  ungroup() %>%
+  mutate(percent = round(100 * (count / total_region_sightings), 1))
+
+```
+
+```{r, echo=FALSE}
+ggplot(sheep_gender_by_region, aes(fill = Sex_Species1, y = percent, x = Region)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Percentage of BHS Sex Relative to Region Totals",
+       x = "Region",
+       y = "Percentage") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(sheep_gender_by_region, aes(x = Region, y = percent, fill = Sex_Species1)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Percentage of Bighorn Sheep by Sex and Region Relative to Park Totals",
+       x = "Region",
+       y = "Percentage",
+       fill = "Sex") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+```
+### Annual Percentage of BHS Detections by Region and Sex
+```{r, echo=FALSE}
+sheep_gender_by_region <- sheep_standardize %>%
+  group_by(Year, Region, Sex_Species1) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  left_join(yearly_totals, by = c("Year")) %>%
+  mutate(percent = round(100 * (count / total_counts), 1))
+
+#Visualization for sheep totals
+dodge <- position_dodge(width=0.8)
+p <- ggplot(sheep_gender_by_region, aes(x = Region, y = percent, fill = Sex_Species1)) + 
+  geom_bar(stat = "identity", position = dodge, width = 0.7) + # width can be adjusted for bar thickness
+  facet_wrap(~Year, ncol = 1, scales = "free_y") + 
+  scale_fill_brewer(palette = "Set3", name = "Gender") + 
+  labs(title = "Annual Percentage of BHS Detections by Gender and Region relative to Yearly Totals",
+       x = "Region", 
+       y = "Percentage") + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(vjust = 0.5, hjust = 0.5), # Horizontal labels, adjusted for centering
+        legend.position = "bottom",
+        panel.spacing = unit(2, "lines")) # Adjust spacing between panels
+
+# Convert the ggplot object to a plotly object
+p_interactive <- ggplotly(p, tooltip = "label+percent+total_counts")
+
+# If you want to customize the hover information, you can use tooltip argument like this:
+p_interactive <- ggplotly(p, tooltip = c("Region", "percent", "Sex_Species1", "total_counts"))
+
+# Now p_interactive is an interactive plotly object which you can display in an RMarkdown HTML document or in a Shiny app
+p_interactive
+
+```
+
+
+*** 
+
+## Percentage of Bighorn Sheep Detections by Age:
+The following graph demonstrates the overall detection of Bighorn Sheep by age.
+```{r, echo=FALSE}
+
+unique_age_names <- unique(sheep_standardize$Age_Species1)
+
+unique_age_names_no_na <- unique_age_names[!is.na(unique_age_names)]
+
+sheep_standardize$Age_Species1 <- ifelse(sheep_standardize$Age_Species1 %in% c(unique_age_names_no_na), sheep_standardize$Age_Species1, 'Unknown/Other')
+
+coul <- brewer.pal(length(unique_age_names), "Set3")
+counts2 <- table(sheep_standardize$Age_Species1)
+midpoints <- barplot(counts2, main="Total Count of Bighorn Sheep Detection by Age",
+   xlab="Age",
+   ylab= 'Total Count',
+   col=coul,
+   ylim=c(0, max(counts2) + 20)
+   )
+text(midpoints, counts2, labels=counts2, pos=3, cex=0.8)
+
+```
+
+*** 
+
+## Number of Cameras:
+
+The following represents the park wide camera counts by different years and regions that were located in the provided files.
+
+### Annual Parkwide Number of Cameras:
+
+```{r, include=FALSE}
+photoData$Year <- as.numeric(format(as.POSIXct(photoData$DateTime, tz = "UTC"), "%Y"))
+```
+
+```{r, include = FALSE}
+df2023 <- photoData[photoData$Year == "2023",]
+df2022 <- photoData[photoData$Year == "2022",]
+df2021 <- photoData[photoData$Year == "2021",]
+```
+
+
+```{r, include=FALSE}
+cameras_2023 <- sum(df2023$Camera)
+cameras_2023
+```
+
+
+```{r, include=FALSE}
+cameras_2022 <- sum(df2022$Camera)
+cameras_2022
+```
+
+```{r, include=FALSE}
+cameras_2021 <- sum(df2021$Camera)
+cameras_2021
+```
+
+
+```{r, echo=FALSE}
+labels <- c("2021", "2022", "2023")
+camera_data <- data.frame(camera_sum = c(cameras_2021, cameras_2022, cameras_2023), Label = labels)
+aggregate_data <- aggregate(camera_sum ~ Label, data = camera_data, FUN = sum)
+bar_colors <- c("pink", "lightgreen", "skyblue")
+
+num_cameras <- barplot(aggregate_data$camera_sum, names.arg = aggregate_data$Label, main="Number of Cameras by Year at Capitol Reef",
+   xlab="Year",
+   ylab= 'Total Count',
+   col = bar_colors,
+   )
+text( x = 1:length(aggregate_data$camera_sum), y = aggregate_data$camera_sum,
+     label = aggregate_data$camera_sum, pos = 3, cex = 0.8, col = "black")
+```
+
+### Number of cameras per month by year overall 
+
+```{r, include=FALSE}
+photoData$month <- as.numeric(format(as.POSIXct(photoData$DateTime, tz = "UTC"), "%m"))
+```
+```{r, include=FALSE}
+library(dplyr)
+
+grouped_data <- photoData %>%
+  group_by(Year, month) %>%
+  summarise(count = n())
+```
+```{r, include=FALSE}
+grouped_data$month <- factor(grouped_data$month, levels = 1:12, labels = month.name)
+```
+```{r, echo=FALSE}
+library(ggplot2)
+
+ggplot(grouped_data, aes(x = month, y = count, fill = factor(Year))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Month", y = "Total Count", fill = "Year") +
+  geom_text(aes(label = count), size = 2, position = position_dodge(width = 0.9), vjust = -0.5) +
+  ggtitle("Number of Cameras per Month by Year") +
+  theme_minimal() +
+  theme(legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+*** 
+
+## Percentage of Detection By Species
+
+The following figures represent the percentage of detection by species between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
+
+```{r photoData_preprocessing, include=FALSE}
+
+# Create a new column called "month" extracting month from DateTime
+photoData$month <- month(photoData$DateTime)
+
+# If you want the month name instead of the month number, you can use month.abb or month.name
+photoData$monthName <- month.abb[month(photoData$DateTime)]
+```
+
+```{r, merge, include=FALSE}
+locationColumns <- c("Project", "Region", "RegionSite", "x_utm", "y_utm", "Site")
+merged_data <- merge(photoData, siteLocations[, locationColumns], by = "RegionSite")
+head(merged_data)
+```
+```{r, include=FALSE}
+species1_proportions <- table(photoData$Species1) / nrow(photoData)
+
+#print(species1_proportions)
+```
+
+### Parkwide Percentage of detections by species (All Time):
+
+```{r, echo=FALSE}
+# Create a pie chart
+pie(species1_proportions, labels = NA, main = "Proportions of Species", col = rainbow(length(species1_proportions)))
+
+# Add labels with adjusted size
+legend("topright", legend = names(species1_proportions), fill = rainbow(length(species1_proportions)), cex = 0.8, xpd = TRUE)
+
+```
+
+### Parkwide Percentage of detections by species (Annual):
+
+```{r, include=FALSE}
+df2023 <- photoData[photoData$Year == "2023", ]
+df2022 <- photoData[photoData$Year == "2022", ]
+df2021 <- photoData[photoData$Year == "2021", ]
+```
+
+
+### Parkwide Species Detection Percentage (2023):
+
+```{r, 2023_plot, echo=FALSE}
+species_proportions2023 <- table(df2023$Species1) / nrow(photoData)
+# Create a pie chart
+pie(species_proportions2023, labels = NA, main = "Proportions of Species (2023)", col = rainbow(length(species_proportions2023)))
+
+# Add labels with adjusted size
+legend("topright", legend = names(species_proportions2023), fill = rainbow(length(species_proportions2023)), cex = 0.8, xpd = TRUE)
+```
+
+### Parkwide 2023 Monthly Species Detection:
+
+``` {r 2023_monthly, echo=FALSE}
+for (m in unique(df2023$monthName)) {
+  # Subset data for the current month
+  data_month <- subset(df2023, monthName == m)
+  
+  # Calculate species proportions for the current month
+  species_proportions <- table(data_month$Species1) / nrow(data_month)
+  
+  # Create a pie chart
+  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2023)", sep = ""), col = rainbow(length(species_proportions)))
+  
+  # Add legend with adjusted size
+  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+}
+```
+
+### Parkwide Species Detection Percentage (2022):
+
+```{r, 2022_plot, echo=FALSE}
+species_proportions2022 <- table(df2022$Species1) / nrow(photoData)
+# Create a pie chart
+pie(species_proportions2022, labels = NA, main = "Proportions of Species (2022)", col = rainbow(length(species_proportions2022)))
+
+# Add labels with adjusted size
+legend("topright", legend = names(species_proportions2022), fill = rainbow(length(species_proportions2022)), cex = 0.8, xpd = TRUE)
+```
+
+### Parkwide 2022 Monthly Species Detection:
+
+``` {r 2022_monthly, echo=FALSE}
+for (m in unique(df2022$monthName)) {
+  # Subset data for the current month
+  data_month <- subset(df2022, monthName == m)
+  
+  # Calculate species proportions for the current month
+  species_proportions <- table(data_month$Species1) / nrow(data_month)
+  
+  # Create a pie chart
+  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2022)", sep = ""), col = rainbow(length(species_proportions)))
+  
+  # Add legend with adjusted size
+  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+}
+```
+
+### Parkwide Species Detection Percentage (2021):
+
+```{r, 2021_plot, echo=FALSE}
+species_proportions2021 <- table(df2021$Species1) / nrow(photoData)
+# Create a pie chart
+pie(species_proportions2021, labels = NA, main = "Proportions of Species (2021)", col = rainbow(length(species_proportions2021)))
+
+# Add labels with adjusted size
+legend("topright", legend = names(species_proportions2021), fill = rainbow(length(species_proportions2021)), cex = 0.8, xpd = TRUE)
+```
+
+### Parkwide 2021 Monthly Species Detection:
+
+``` {r 2021_monthly, echo=FALSE}
+for (m in unique(df2021$monthName)) {
+  # Subset data for the current month
+  data_month <- subset(df2021, monthName == m)
+  
+  # Calculate species proportions for the current month
+  species_proportions <- table(data_month$Species1) / nrow(data_month)
+  
+  # Create a pie chart
+  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2021)", sep = ""), col = rainbow(length(species_proportions)))
+  
+  # Add legend with adjusted size
+  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+}
+```
+
+### Species Detection by Region — Overall:
+
+``` {r overall_region, echo=FALSE}
+for (r in unique(photoData$Region)) {
+  # Subset data for the current region
+  data_region <- subset(photoData, Region == r)
+  
+  # Calculate species proportions for the current region
+  species_proportions <- table(data_region$Species1) / nrow(data_region)
+  
+  # Create a pie chart
+  pie(species_proportions, labels = NA, main = paste("Proportions of Species ", r , sep = ""), col = rainbow(length(species_proportions)))
+  
+  # Add legend with adjusted size
+  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+}
+```
 
