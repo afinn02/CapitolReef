@@ -93,41 +93,99 @@ NOTE: Repeats are standardized by counting one detection per two-hours to accoun
 
 ```{r, include=FALSE}
 #IF OTHER SPECIES DESIRED MODIFY HERE
-desired_species = 'Bighorn sheep'
-sheep <- photoData[(photoData$Species1 == desired_species), ]
+desired_species = tolower('Bighorn sheep')
 
-#THIS FUNCTION EXCLUDES REPEATS
+#THIS FUNCTION EXCLUDES REPEATS AND GETS SPECIES1 & SPECIES2 SHEEP
 filter_rows <- function(data) {
   data %>%
+    mutate(Species1 = as.character(Species1),
+           Species2 = as.character(Species2),
+           Repeat = as.character(Repeat)) %>%
+    # Filter rows where either Species1 or Species2 matches the desired_species, case-insensitively
+    filter(tolower(Species1) == desired_species | tolower(Species2) == desired_species) %>%
+    # Filter rows where Repeat is NA or Repeat is not 'yes', 
     filter(is.na(Repeat) | tolower(trimws(Repeat)) != "yes")
 }
 
-sheep_standardize <- filter_rows(sheep)
+sheep_standardize <- filter_rows(photoData)
 ```
+
+```{r, include=FALSE}
+species1_rows <- sheep_standardize %>%
+  select("Project", "Region", "Site", "Camera", "DateTime", "File", "Species1", "Age_Species1", "Sex_Species1", "Count_Species1", "Repeat")
+
+species2_rows <- sheep_standardize %>%
+  select("Project", "Region", "Site", "Camera", "DateTime", "File", "Species2", "Age_Species2", "Sex_Species2", "Count_Species2", "Repeat")
+
+species2_rows <- species2_rows %>%
+  rename("Species1" = Species2,
+         "Age_Species1" = Age_Species2,
+         "Sex_Species1"= Sex_Species2,
+        "Count_Species1" = Count_Species2)
+
+sheep_standardize <- rbind(species1_rows, species2_rows)
+sheep_standardize <- sheep_standardize[order(as.Date(sheep_standardize$DateTime, format="%Y-%m-%d %H:%M:%S")), ]
+```
+
 
 ```{r, echo = FALSE}
 #SETUP STANDARDIZED SHEEP FRAME (EXCLUDED REPEATS)
-sheep_standardize$Sex_Species1 <- ifelse(sheep_standardize$Sex_Species1 %in% c('Male', 'Female'), sheep_standardize$Sex_Species1, 'Unknown')
+# sheep_standardize$Sex_Species1 <- ifelse(sheep_standardize$Sex_Species1 %in% c('Male', 'Female'), sheep_standardize$Sex_Species1, 'Unknown')
 
-genders <- unique(sheep_standardize$Sex_Species1)
+sheep_standardize <- sheep_standardize %>%
+    mutate(
+    Sex_Species1 = ifelse(
+      is.na(Sex_Species1) | tolower(Species1) != tolower(desired_species) | 
+      !Sex_Species1 %in% c('Male', 'Female'), 
+      'Unknown', 
+      Sex_Species1
+    )
+  )
 
+genders <- unique(c(sheep_standardize$Sex_Species1))
+
+# sheep_standardize %>%
+#   mutate(
+#     across(
+#       c(Count_Species1, Count_Species2),
+#       ~ as.character(.)
+#     )
+#   ) %>%
+#   rename(
+#     c('Type_Species1' = 'Species1', 'Type_Species2' = 'Species2')
+#   ) %>%
+#   pivot_longer(
+#     cols = c(Type_Species1, Type_Species2, Age_Species1, Age_Species2, 
+#              Sex_Species1, Sex_Species1, Count_Species1, Count_Species2),
+#     names_to = c('.value', '.set'),
+#     names_sep = '_'
+#   ) %>%
+#   filter(!is.na(Type))
 
 ```
 
+
 ### Detection of BHS Through Time
+
 
 ```{r, echo= FALSE}
 ##Detection of BHS through time
+
+sheep_standardize$Count_Species1 <- as.numeric(as.character(sheep_standardize$Count_Species1))
+
 daily_sightings <- sheep_standardize %>%
   # Assuming 'datetime' is in POSIXct format; otherwise, convert it
   mutate(Date = as.Date(DateTime)) %>%
   group_by(Date) %>%
-  summarise(Sightings = n(), .groups = 'drop')
+  summarise(Sightings = sum(Count_Species1), .groups = 'drop')
+
+#complete_sightings$Sightings[is.na(complete_sightings$Sightings)] <- 0
+
 
 # Now plot the data
 p0 <- ggplot(daily_sightings, aes(x = Date, y = Sightings)) +
-  geom_line(color = "seagreen4") +  # Set the line color to blue
-  geom_point(color = "black") +  # Optionally set the points to the same color
+  geom_line(color = "seagreen4") +  # Set the line color to green
+  geom_point(color = "black") + 
   labs(title = "Daily Sheep Sightings Over Time",
        x = "Date",
        y = "Number of Sightings") +
@@ -137,14 +195,20 @@ p0 <- ggplot(daily_sightings, aes(x = Date, y = Sightings)) +
 p0 <- ggplotly(p0)
 p0
 ```
+
+
+
+
 ```{r, echo = FALSE}
 gender_sightings <- sheep_standardize %>%
-  mutate(Date = as.Date(DateTime)) %>%
-  group_by(Date, Sex_Species1) %>%
-  summarise(Sightings = n(), .groups = 'drop')
+  group_by(DateTime, Sex_Species1) %>%
+  summarise(
+    Sightings = sum(Count_Species1, na.rm = TRUE),
+    .groups = 'drop'
+  )
 
 # Create the facet plot
-pg <- ggplot(gender_sightings, aes(x = Date, y = Sightings, color = Sex_Species1)) +
+pg <- ggplot(gender_sightings, aes(x = DateTime, y = Sightings, color = Sex_Species1)) +
   geom_line() +  # Create a line plot
   geom_point() +  # Add points
   scale_color_brewer(palette = "Paired") +  # Use the 'Paired' color palette for lines
@@ -155,7 +219,8 @@ pg <- ggplot(gender_sightings, aes(x = Date, y = Sightings, color = Sex_Species1
        y = "Number of Sightings") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Angle the date labels for readability
-        legend.position = "bottom") 
+        legend.position = "bottom") +
+  guides(color = guide_legend(title = "Sex"))
 
 pg <- ggplotly(pg)
 pg
@@ -168,15 +233,37 @@ The following graph demonstrates the overall detection of Bighorn Sheep througho
 ```{r, echo = FALSE}
 #OVERALL COUNT OF BHS
 coul <- brewer.pal(length(genders), "Paired")
-counts <- table(sheep_standardize$Sex_Species1)
-midpoints <- barplot(counts, main="Overall Count of Bighorn Sheep Detection by Sex",
-   xlab="Sex",
-   ylab= 'Total Count',
-   col=coul,
-   ylim=c(0, max(counts) + 10),
-   font.main=1
-   )
-text(midpoints, counts, labels=counts, pos=3, cex=0.8)
+
+counts <- sheep_standardize %>%
+  group_by(Sex_Species1) %>%
+  summarise(Total = sum(Count_Species1, na.rm = TRUE)) %>%
+  ungroup() 
+
+counts <- setNames(counts$Total, counts$Sex_Species1)
+
+# midpoints <- barplot(counts, main="Overall Count of Bighorn Sheep Detection by Sex",
+#    xlab="Sex",
+#    ylab= 'Total Count',
+#    col=coul,
+#    ylim=c(0, max(counts) + 10),
+#    font.main=1
+#    )
+# text(midpoints, counts, labels=counts, pos=3, cex=0.8)
+
+interactive_bar <- plot_ly(
+  x = names(counts),
+  y = counts,
+  type = 'bar',
+  marker = list(color = coul),
+  name = 'Total Count'
+) %>%
+  layout(
+    title = "Overall Count of Bighorn Sheep Detection by Sex",
+    xaxis = list(title = "Sex"),
+    yaxis = list(title = "Total Count"),
+    barmode = 'group'
+  )
+interactive_bar
 
 ```
 
@@ -191,6 +278,8 @@ labels <- paste(names(counts), "-", percentages, "%", sep="")
 # Plot pie chart
 pie(counts, labels = labels, col = brewer.pal(length(counts), "Paired"),
     main="Overall Percentage of Bighorn Sheep Detection by Sex", font.main=1)
+
+
 
 ```
 
@@ -209,12 +298,12 @@ unique_years <- sort(unique_years)
 #get the yearly totals
 yearly_totals <- sheep_standardize %>%
   dplyr::group_by(Year) %>%
-  dplyr::summarise(total_counts = n(), .groups = 'drop')
+  dplyr::summarise(total_counts = sum(Count_Species1), .groups = 'drop')
 
 # Then, calculate counts per Sex_Species1 within each year
 detailed_counts <- sheep_standardize %>%
   dplyr::group_by(Year, Sex_Species1) %>%
-  dplyr::summarise(count = n(), .groups = 'drop')
+  dplyr::summarise(count = sum(Count_Species1), .groups = 'drop')
 
 # Join the totals with the detailed counts to calculate percentages
 plot_df <- detailed_counts %>%
@@ -258,12 +347,12 @@ unique_months <- sort(unique_months)
 #monthly totals
 monthly_totals <- sheep_standardize %>%
   dplyr::group_by(Year, Month) %>%
-  dplyr::summarize(total_counts = n(), .groups = 'drop')
+  dplyr::summarize(total_counts = Count_Species1, .groups = 'drop')
 
 # Calculate detailed counts by year and month for each sex
 detailed_counts <- sheep_standardize %>%
   group_by(Year, Month, Sex_Species1) %>%
-  summarise(count = n(), .groups = 'drop')
+  summarise(count = Count_Species1, .groups = 'drop')
 
 # Join the totals with the detailed counts for annual data
 plot_df_annual <- detailed_counts %>%
@@ -309,8 +398,6 @@ p2 <- ggplot(plot_df_monthly_complete, aes(x = Month, y = percent, fill = Sex_Sp
 
 
 p2 <- ggplotly(p2) 
-
-# Display the interactive plot
 p2
 ```
 
@@ -349,7 +436,7 @@ ggplotly(p3)
 
 
 
-```{r, echo=FALSE}
+```{r, include=FALSE}
 p4 <- ggplot(sheep_gender_by_region, aes(x = Region, y = proportion, fill = Sex_Species1)) +
   geom_bar(stat = "identity") +
   scale_fill_brewer(palette = "Paired") +
@@ -365,10 +452,10 @@ ggplotly(p4)
 
 ```
 ### Annual Percentage of BHS Detections by Region and Sex
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 sheep_gender_by_region <- sheep_standardize %>%
   group_by(Year, Region, Sex_Species1) %>%
-  summarise(count = n(), .groups = 'drop') %>%
+  summarise(count = Count_Species1, .groups = 'drop') %>%
   left_join(yearly_totals, by = c("Year")) %>%
   mutate(percent = round(100 * (count / total_counts), 1))
 
@@ -394,16 +481,16 @@ p_interactive
 ```
 ### Percentage of BHS by Region, Year, Month, & Sex
 
-The following graphs demonstrate what percentage of BHS were detected in a particular region based on the total yearly detections. This is further broken down to the month and the sex.
+The following graphs demonstrate what percentage of BHS were detected in a particular region based on the regional yearly detections. This is further broken down to the month and the sex.
 
 ```{r, echo = FALSE}
 yearly_totals <- sheep_standardize %>%
   group_by(Year, Region) %>%
-  summarise(TotalYearlyDetections = n(), .groups = 'drop')
+  summarise(TotalYearlyDetections = sum(Count_Species1), .groups = 'drop')
 
 monthly_detections <- sheep_standardize %>%
   group_by(Year, Month, Region, Sex_Species1) %>%
-  summarise(Detections = n(), .groups = 'drop')
+  summarise(Detections = sum(Count_Species1), .groups = 'drop')
 
 
 # Calculate detections per year, month, region, and gender
