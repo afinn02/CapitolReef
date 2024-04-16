@@ -18,6 +18,7 @@ DIRECTIONS:
 1) Necessary libraries: The first code from lines 14-42 downloads all necessary libraries associated with this project. If there are errors in from this section then a specific library may be missing locally. Run the below code with the missing library to update this:
     if (!require('library')) install.packages('library')
     library('library')
+![alt text](image-2.png)
 
 2) Modifying the file path: The following code block from lines 46-71 contains a "file_path" variable with the comment "MODIFY FILE PATH HERE". Alter the path of that variable to match the location of the file you want to run. The file you run should be downloaded locally.
 ![alt text](image-1.png)
