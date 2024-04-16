@@ -23,6 +23,10 @@ if (!require("kableExtra")) install.packages('kableExtra')
 if (!require('plyr')) install.packages('plyr')
 if (!require('tidyverse')) install.packages('tidyverse')
 if (!require('plotly')) install.packages('plotly')
+if (!require('pander')) install.packages('pander')
+if (!require('flextable')) install.packages('flextable')
+library(flextable)
+library(pander)
 library(tidyverse)
 library(kableExtra)
 library(prettydoc)
@@ -42,8 +46,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, include=FALSE}
 
 #MODIFY FILE PATH HERE
-file_path <- "CARE_GameCam_MergedData/TimelapseData_merged.csv"
-#file_path <- "PhotoWildlifeData_UMichDataShare_12042023.xlsx"
+#file_path <- "CARE_GameCam_MergedData/TimelapseData_merged.csv"
+file_path <- "PhotoWildlifeData_UMichDataShare_12042023.xlsx"
 file_extension <- tools::file_ext(file_path)
 
 if(file_extension == "csv") {
@@ -77,7 +81,7 @@ min_date <- min(photoData$DateTime)
 min_date <- as.Date(min_date)
 max_date <- as.Date(max_date)
 
-locations <- c(unique(photoData$RegionSite))
+locations <- c(unique(photoData$Region))
 cameras <- unique(photoData$Camera)
 ```
 
@@ -90,7 +94,7 @@ The following file is a summary of the data captured from motion sensor cameras 
 
 <!-- SET UP THE SHEEP STANDARDIZE FRAME FOR ANALYSIS -->
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 #IF OTHER SPECIES DESIRED MODIFY HERE
 desired_species = tolower('Bighorn sheep')
 
@@ -168,6 +172,44 @@ genders <- unique(c(sheep_standardize$Sex_Species1))
 
 ### Detection of BHS Through Time
 
+```{r, echo = FALSE}
+# Aggregate sightings by day
+sheep_standardize$Count_Species1 <- as.numeric(as.character(sheep_standardize$Count_Species1))
+
+# Aggregate sightings by day
+daily_sightings <- sheep_standardize %>%
+  mutate(Date = as.Date(DateTime),     # Convert datetime to date
+         Year = format(Date, "%Y"),    # Extract year
+         Month = format(Date, "%m")) %>% # Extract month as a string
+  group_by(Year, Month) %>%
+  dplyr::summarise(Sightings = sum(Count_Species1), .groups = 'drop')
+
+# Replace NA values with 0, if necessary
+monthly_sightings <- expand_grid(
+  Year = unique(daily_sightings$Year),
+  Month = sprintf("%02d", 1:12)
+) %>%
+  left_join(daily_sightings, by = c("Year", "Month")) %>%
+  replace_na(list(Sightings = 0))  # Replace NA in Sightings with 0
+
+# Convert 'Month' from numeric to factor with labels
+monthly_sightings$Month <- factor(monthly_sightings$Month, levels = sprintf("%02d", 1:12), labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+
+p0 <- ggplot(monthly_sightings, aes(x = Month, y = Sightings, group = Year, color = Year, text = paste("Count:", Sightings, "<br>Year:", Year, "<br>Month:", Month))) +
+  geom_line() +  # Draw lines
+  geom_point() +  # Add points
+  labs(title = "Monthly Sheep Sightings Over Years",
+       x = "Month",
+       y = "Number of Sightings") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Convert ggplot to an interactive plotly object
+ggplotly(p0, tooltip= 'text')
+```
+
+
 ```{r, echo= FALSE}
 ##Detection of BHS through time
 
@@ -178,9 +220,6 @@ daily_sightings <- sheep_standardize %>%
   mutate(Date = as.Date(DateTime)) %>%
   group_by(Date) %>%
   dplyr::summarise(Sightings = sum(Count_Species1), .groups = 'drop')
-
-#complete_sightings$Sightings[is.na(complete_sightings$Sightings)] <- 0
-
 
 # Now plot the data
 p0 <- ggplot(daily_sightings, aes(x = .data$Date, y = Sightings)) +
@@ -211,7 +250,7 @@ pg <- ggplot(gender_sightings, aes(x = DateTime, y = Sightings, color = Sex_Spec
   scale_color_brewer(palette = "Paired") +  # Use the 'Paired' color palette for lines
   geom_point(color = "black") +
   facet_wrap(~Sex_Species1, scales = "free_y", ncol = 1) +  # Facet by gender
-  labs(title = "Sheep Sightings Over Time by Gender",
+  labs(title = "Daily Sheep Sightings by Gender",
        x = "Date",
        y = "Number of Sightings") +
   theme_minimal() +
@@ -256,6 +295,10 @@ interactive_bar
 ```
 
 ```{r, echo=FALSE}
+pander(counts)
+```
+
+```{r, echo=FALSE}
 #PIE CHART OF BHS DETECTIONS
 total_counts <- sum(counts)
 percentages <- round(100 * counts / total_counts, 1)
@@ -270,6 +313,7 @@ pie(counts, labels = labels, col = brewer.pal(length(counts), "Paired"),
 
 
 ```
+
 
 ### Park-wide Annual Detection of Bighorn Sheep by Sex
 
@@ -314,9 +358,12 @@ p_interactive <- ggplotly(p, tooltip = c("percent", "Sex_Species1"))
 # Display the interactive plot
 p_interactive
 
-
-
 ```
+
+```{r, echo=FALSE}
+pander(plot_df)
+```
+
 
 ### Park-wide Annual & Monthly Detection of Bighorn Sheep by Sex
 
