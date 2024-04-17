@@ -1,4 +1,5 @@
-Capitol Reef National Park Project:
+## Capitol Reef National Park Project:
+
 Authors: Abigail Finn, Brooke Rossow, Harrison Barth, Miles Scheffler
 
 The following document contains directions and important information for using the animal_data_markdown.Rmd file for Timelapse analysis. 
@@ -31,7 +32,7 @@ FILE FORMATS: The files provided should match the formats and structure of the "
     ![alt text](document_save_tutorial1-1.png)
     - Double click and select "Save As". Save as type Webpage, Complete in the desired location.
 
-    
+
 
 
 
