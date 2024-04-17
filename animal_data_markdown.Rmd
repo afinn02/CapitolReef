@@ -6,7 +6,7 @@ output:
   prettydoc::html_pretty:
     theme: cayman
     toc: true
-    toc_depth: 3
+    toc_depth: 4
 ---
 
 <!--DOWNLOAD ALL NECESSARY LIBRARIES -->
@@ -47,8 +47,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, include=FALSE}
 
 #MODIFY FILE PATH HERE
-#file_path <- "Data/TimelapseData_merged.csv"
-file_path <- "Data/PhotoWildlifeData_UMichDataShare_12042023.xlsx"
+file_path <- "Data/TimelapseData_merged.csv"
+#file_path <- "Data/PhotoWildlifeData_UMichDataShare_12042023.xlsx"
 file_extension <- tools::file_ext(file_path)
 
 if(file_extension == "csv") {
@@ -86,7 +86,7 @@ locations <- c(unique(photoData$Region))
 cameras <- unique(photoData$Camera)
 ```
 
-The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s).\
+The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s). Plots are interactive through html.\
 <br> NOTE: Repeats are standardized by removing the columns where repeat is set to yes. The counts of species was aggregated using the Count_Species1 column.
 
 ------------------------------------------------------------------------
@@ -153,6 +153,8 @@ genders <- unique(c(sheep_standardize$Sex_Species1))
 
 ### Detection of BHS Through Time
 
+For the years in the provided file, the following graph displays the monthly total detections for BHS.
+
 ```{r, echo = FALSE}
 # Aggregate sightings by day
 sheep_standardize$Count_Species1 <- as.numeric(as.character(sheep_standardize$Count_Species1))
@@ -215,6 +217,10 @@ p0 <- ggplot(daily_sightings, aes(x = .data$Date, y = Sightings)) +
 p0 <- ggplotly(p0)
 p0
 ```
+
+### Bighorn Sheep: Sex
+
+This section includes BHS summaries specified by sex.
 
 ```{r, echo = FALSE}
 gender_sightings <- sheep_standardize %>%
@@ -279,7 +285,7 @@ pg
 ```
 
 
-### Overall Count & Percentage of Bighorn Sheep detection by sex:
+#### Overall Count & Percentage of Bighorn Sheep detection by sex:
 
 The following graph demonstrates the overall detection of Bighorn Sheep throughout all recorded locations between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
 
@@ -332,9 +338,9 @@ pie(counts, labels = labels, col = brewer.pal(length(counts), "Paired"),
 ```
 
 
-### Park-wide Annual Detection of Bighorn Sheep by Sex
+#### Park-wide Annual Detection of Bighorn Sheep by Sex
 
-The following has the percentage of bighorn sheep detection by gender for the years recorded in the provided files.
+The following has the percentage of bighorn sheep detection by gender between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
 
 ```{r,fig.width= 8, echo=FALSE}
 #PERCENTAGE OF BHS DETECTIONS FOR YEARS RECORDED BY SEX
@@ -382,7 +388,7 @@ pander(plot_df)
 ```
 
 
-### Park-wide Annual & Monthly Detection of Bighorn Sheep by Sex
+#### Park-wide Annual & Monthly Detection of Bighorn Sheep by Sex
 
 The following has the percentage of bighorn sheep detection by gender specified by the year and months recorded in the provided files.
 <br>
@@ -457,7 +463,7 @@ p2 <- ggplotly(p2)
 p2
 ```
 
-### Regional Detection of Bighorn Sheep by Sex
+#### Regional Detection of Bighorn Sheep by Sex
 
 The following has the percentage of bighorn sheep detection by gender for the regions in the provided files.
 
@@ -506,7 +512,7 @@ ggplotly(p4)
 
 ```
 
-### Annual Percentage of BHS Detections by Region and Sex
+#### Annual Percentage of BHS Detections by Region and Sex
 
 ```{r, echo=FALSE, warning=FALSE}
 sheep_gender_by_region <- sheep_standardize %>%
@@ -537,7 +543,7 @@ p_interactive
 
 ```
 
-### Percentage of BHS by Region, Year, Month, & Sex
+#### Percentage of BHS by Region, Year, Month, & Sex
 
 The following graphs demonstrate what percentage of BHS were detected in a particular region based on the regional totals for that year. This is further broken down to the month and the sex.
 
@@ -602,7 +608,7 @@ for(region in unique_regions) {
   # Create the ggplot object
   p <- ggplot(region_data, aes(x = Month, y = Percentage, fill = Sex_Species1)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-    facet_wrap(~Year, ncol = num_cols, scales = "free_y") +
+    facet_wrap(~Year, ncol = num_cols + 1, scales = "free_y") +
     scale_fill_brewer(palette = "Paired") +
     labs(title = paste("Monthly Percentage of BHS Detections by Gender in", region, "by Year"),
          x = "Month", 
@@ -611,7 +617,6 @@ for(region in unique_regions) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
   # Convert to a plotly interactive object
-   # Convert to a plotly interactive object
   p_interactive <- ggplotly(p)
   
   # Store the plotly object in the list
@@ -624,7 +629,10 @@ htmltools::tagList(plots_list)
 
 ------------------------------------------------------------------------
 
-## Percentage of Bighorn Sheep Detections by Age:
+### Bighorn Sheep: Age
+The following section summarizes BHS detections by Age.
+
+#### Percentage of Bighorn Sheep Detections by Age:
 
 The following graph demonstrates the overall detection of Bighorn Sheep by age.
 
