@@ -711,9 +711,6 @@ legend("topright", legend = names(species1_proportions), fill = rainbow(length(s
 
 ```
 
-```{r}
-
-```
 ##Parkwide Percentage of detections by species (Annual):
 ```{r years}
 for (y in df_list) {
@@ -746,15 +743,6 @@ for (y in df_list) {
 }
 ```
 
-## Parkwide Species Detection Percentage (2023):
-```{r, 2023_plot, echo=FALSE}
-species_proportions2023 <- table(df2023$Species1) / nrow(photoData)
-# Create a pie chart
-pie(species_proportions2023, labels = NA, main = "Proportions of Species (2023)", col = rainbow(length(species_proportions2023)))
-
-# Add labels with adjusted size
-legend("topright", legend = names(species_proportions2023), fill = rainbow(length(species_proportions2023)), cex = 0.8, xpd = TRUE)
-```
 
 ### Parkwide 2023 Monthly Species Detection:
 ```{r 2023_monthly, echo=FALSE}
@@ -773,59 +761,30 @@ for (m in unique(photoData$monthName)) {
 }
 ```
 
-### Parkwide Species Detection Percentage (2022):
+### Parkwide 2022 Monthly Species Detection:
 
-<!-- ```{r, 2022_plot, echo=FALSE} -->
+``` {r 2022_monthly, echo=FALSE}
 
-<!-- species_proportions2022 <- table(df2022$Species1) / nrow(photoData) -->
+for (m in unique(df2022$monthName)) {
 
-<!-- # Create a pie chart -->
+  # Subset data for the current month
 
-<!-- pie(species_proportions2022, labels = NA, main = "Proportions of Species (2022)", col = rainbow(length(species_proportions2022))) -->
+  data_month <- subset(df2022, monthName == m)
 
-<!-- # Add labels with adjusted size -->
+  # Calculate species proportions for the current month
 
-<!-- legend("topright", legend = names(species_proportions2022), fill = rainbow(length(species_proportions2022)), cex = 0.8, xpd = TRUE) -->
+  species_proportions <- table(data_month$Species1) / nrow(data_month)
 
-<!-- ``` -->
+  # Create a pie chart
 
-<!-- ### Parkwide 2022 Monthly Species Detection: -->
+  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2022)", sep = ""), col = rainbow(length(species_proportions)))
 
-<!-- ``` {r 2022_monthly, echo=FALSE} -->
+  # Add legend with adjusted size
 
-<!-- for (m in unique(df2022$monthName)) { -->
+  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
 
-<!--   # Subset data for the current month -->
-
-<!--   data_month <- subset(df2022, monthName == m) -->
-
-<!--   # Calculate species proportions for the current month -->
-
-<!--   species_proportions <- table(data_month$Species1) / nrow(data_month) -->
-
-<!--   # Create a pie chart -->
-
-<!--   pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2022)", sep = ""), col = rainbow(length(species_proportions))) -->
-
-<!--   # Add legend with adjusted size -->
-
-<!--   legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE) -->
-
-<!-- } -->
-
-<!-- ``` -->
-
-### Parkwide Species Detection Percentage (2021):
-
-```{r, 2021_plot, echo=FALSE}
-species_proportions2021 <- table(df2021$Species1) / nrow(photoData)
-# Create a pie chart
-pie(species_proportions2021, labels = NA, main = "Proportions of Species (2021)", col = rainbow(length(species_proportions2021)))
-
-# Add labels with adjusted size
-legend("topright", legend = names(species_proportions2021), fill = rainbow(length(species_proportions2021)), cex = 0.8, xpd = TRUE)
+}
 ```
-
 ### Parkwide 2021 Monthly Species Detection:
 
 ```{r 2021_monthly, echo=FALSE}
