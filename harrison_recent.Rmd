@@ -730,7 +730,7 @@ for (y in df_list) {
 for (y in df_list) {
   year <- y$Year[1]
   print(paste("Species proportions for the months of the year ", year))
-  for (m in y$month) {
+  for (m in sort(unique(y$month))) {
     month_df <- y[y$month == m, ]
     m_name = month_df$monthName[1]
     species_proportions <- table(month_df$Species1) / nrow(month_df)
@@ -760,49 +760,6 @@ for (m in unique(photoData$monthName)) {
   legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
 }
 ```
-
-### Parkwide 2022 Monthly Species Detection:
-
-``` {r 2022_monthly, echo=FALSE}
-
-for (m in unique(df2022$monthName)) {
-
-  # Subset data for the current month
-
-  data_month <- subset(df2022, monthName == m)
-
-  # Calculate species proportions for the current month
-
-  species_proportions <- table(data_month$Species1) / nrow(data_month)
-
-  # Create a pie chart
-
-  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2022)", sep = ""), col = rainbow(length(species_proportions)))
-
-  # Add legend with adjusted size
-
-  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
-
-}
-```
-### Parkwide 2021 Monthly Species Detection:
-
-```{r 2021_monthly, echo=FALSE}
-for (m in unique(df2021$monthName)) {
-  # Subset data for the current month
-  data_month <- subset(df2021, monthName == m)
-  
-  # Calculate species proportions for the current month
-  species_proportions <- table(data_month$Species1) / nrow(data_month)
-  
-  # Create a pie chart
-  pie(species_proportions, labels = NA, main = paste("Proportions of Species (", m, " 2021)", sep = ""), col = rainbow(length(species_proportions)))
-  
-  # Add legend with adjusted size
-  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
-}
-```
-
 ### Species Detection by Region — Overall:
 
 ```{r overall_region, echo=FALSE}
@@ -818,5 +775,43 @@ for (r in unique(photoData$Region)) {
   
   # Add legend with adjusted size
   legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+}
+```
+### Species Detection by Region — Annually:
+```{r overall_region_year, echo=FALSE}
+for (r in unique(photoData$Region)) {
+  # Subset data for the current region
+  data_region <- subset(photoData, Region == r)
+  for (y in sort(unique(data_region$Year))) {
+    year_region = data_region[data_region$Year == y, ]
+    # Calculate species proportions for the current region
+    species_proportions <- table(year_region$Species1) / nrow(year_region)
+
+    # Create a pie chart
+    pie(species_proportions, labels = NA, main = paste0("Proportions of Species ", r , " in ", y), col = rainbow(length(species_proportions)))
+
+    # Add legend with adjusted size
+    legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+  }
+}
+```
+
+### Species Detection by Region — Monthly:
+```{r overall_region_month, echo=FALSE}
+for (r in unique(photoData$Region)) {
+  # Subset data for the current region
+  data_region <- subset(photoData, Region == r)
+  for (m in sort(unique(data_region$month))) {
+    month_region = data_region[data_region$month == m, ]
+    # Calculate species proportions for the current region
+    species_proportions <- table(month_region$Species1) / nrow(month_region)
+    monthName = month_region$monthName[1]
+
+    # Create a pie chart
+    pie(species_proportions, labels = NA, main = paste0("Proportions of Species ", r , " in ", monthName), col = rainbow(length(species_proportions)))
+
+    # Add legend with adjusted size
+    legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+  }
 }
 ```
