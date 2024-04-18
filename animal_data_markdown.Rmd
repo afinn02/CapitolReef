@@ -1,5 +1,5 @@
 ---
-title: "Capitol Reef Photo Data Summary"
+title: "Capitol Reef Wildlife Monitoring"
 author: "IA Student Analyst Team"
 date: "`r format(Sys.Date(), '%m/%d/%Y')`"
 output: 
@@ -87,7 +87,7 @@ cameras <- unique(photoData$Camera)
 ```
 
 The following file is a summary of the data captured from motion sensor cameras within Capitol Reef National Park. The sightings in this report occur between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`. It includes a summary from `r length(locations)` location(s) and `r length(cameras)` different camera(s). Plots are interactive through html.\
-<br> NOTE: Repeats are standardized by removing the columns where repeat is set to yes. The counts of species was aggregated using the Count_Species1 column.
+<br> NOTE: Repeats are standardized by removing the columns where repeat is set to yes. The counts of species was aggregated using the Count_Species1 column which has been modified to include both Species1 & Species2 sightings.
 
 ------------------------------------------------------------------------
 
@@ -205,8 +205,7 @@ daily_sightings <- sheep_standardize %>%
   dplyr::summarise(Sightings = sum(Count_Species1), .groups = 'drop')
 
 # Now plot the data
-p0 <- ggplot(daily_sightings, aes(x = .data$Date, y = Sightings)) +
-  #geom_line(color = "seagreen4") +  # Set the line color to green
+p0 <- ggplot(daily_sightings, aes(x = .data$Date, y = Sightings)) +  # Set the line color to green
   geom_point(color = "seagreen4") + 
   labs(title = "Daily Sheep Sightings Over Time",
        x = "Date",
@@ -232,10 +231,8 @@ gender_sightings <- sheep_standardize %>%
 
 # Create the facet plot
 pg <- ggplot(gender_sightings, aes(x = DateTime, y = Sightings, color = Sex_Species1)) +
-  #geom_line() +  # Create a line plot
   geom_point() +  # Add points
   scale_color_brewer(palette = "Paired") +  # Use the 'Paired' color palette for lines
-  #geom_point(color = "black") +
   facet_wrap(~Sex_Species1, scales = "free_y", ncol = 1) +  # Facet by gender
   labs(title = "Daily Sheep Sightings by Gender",
        x = "Date",
@@ -285,7 +282,7 @@ pg
 ```
 
 
-#### Overall Count & Percentage of Bighorn Sheep detection by sex:
+#### Overall Count & Percentage of Bighorn Sheep Detection by Sex:
 
 The following graph demonstrates the overall detection of Bighorn Sheep throughout all recorded locations between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
 
@@ -329,10 +326,16 @@ percentages <- round(100 * counts / total_counts, 1)
 #lables with percentages
 labels <- paste(names(counts), "-", percentages, "%", sep="")
 
-# Plot pie chart
-pie(counts, labels = labels, col = brewer.pal(length(counts), "Paired"),
-    main="Overall Percentage of Bighorn Sheep Detection by Sex", font.main=1)
 
+p <- plot_ly(labels = labels, values = counts, type = 'pie', 
+             textinfo = 'label+percent', hoverinfo = 'label+percent+value',
+             marker = list(colors = RColorBrewer::brewer.pal(length(counts), "Paired")))
+
+# Set layout options
+p <- p %>% layout(title = "Overall Percentage of Bighorn Sheep Detection by Sex")
+
+# Display the plot
+p
 
 
 ```
@@ -369,7 +372,7 @@ p <- ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Sex_Species1)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.7) + # Use dodge to place bars side by side
   geom_text(aes(label = paste(percent, "%")), position = position_dodge(width = 0.6), vjust = -0.25, size=3) +
   scale_fill_brewer(palette = "Paired", name = "Gender") + # Set a color palette and name the legend as "Gender"
-  labs(title = "Annual Percentage of Bighorn Sheep by Year and Gender (Parkwide)",
+  labs(title = "Annual Percentage of Bighorn Sheep by Year and Gender (Park-wide)",
        x = "Year", 
        y = "Percentage") +
   theme_minimal() + # Use a minimal theme for a cleaner look
@@ -543,7 +546,7 @@ p_interactive
 
 ```
 
-#### Percentage of BHS by Region, Year, Month, & Sex
+#### Percentage of BHS by Region, Year, Month, & Sex Relative to Region Totals
 
 The following graphs demonstrate what percentage of BHS were detected in a particular region based on the regional totals for that year. This is further broken down to the month and the sex.
 
@@ -561,8 +564,6 @@ monthly_detections <- sheep_standardize %>%
 
 # Calculate detections per year, month, region, and gender
 monthly_percentages <- monthly_detections %>%
-  # group_by(Year, Month, Region, Sex_Species1) %>%
-  # summarise(Detections = n(), .groups = 'drop') %>%
   left_join(yearly_totals, by = c("Year", "Region")) %>%
   mutate(Percentage = round(100 * (Detections / TotalYearlyDetections), 1)) %>%
   filter(!is.na(Percentage), TotalYearlyDetections > 0)
@@ -601,15 +602,34 @@ unique_regions <- unique(monthly_complete$Region)
 # Initialize a list to store the plots
 plots_list <- list()
 
-# Loop through each region and create the facetted plots
 for(region in unique_regions) {
-  # Filter the data for the current region
+  # Ensure region is a character string
+  region <- as.character(region)
+  
+  # Filter the data for the current region and years with data
   region_data <- filter(monthly_complete, Region == region)
+  
+  # Determine the years that actually have data
+  years_with_data <- region_data %>%
+    group_by(Year) %>%
+    summarise(Total = sum(Percentage, na.rm = TRUE)) %>%
+    filter(Total > 0) %>%
+    .$Year
+  
+  # Skip plotting for this region if there are no years with data
+  if(length(years_with_data) == 0) next
+  
+  # Filter the region_data for only years with data
+  region_data <- region_data %>%
+    filter(Year %in% years_with_data)
+  
+  # Determine the number of columns for faceting based on the years with data
+  num_cols <- ifelse(length(years_with_data) > 3, 2, 1)
   
   # Create the ggplot object
   p <- ggplot(region_data, aes(x = Month, y = Percentage, fill = Sex_Species1)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-    facet_wrap(~Year, ncol = num_cols + 1, scales = "free_y") +
+    facet_wrap(~Year, ncol = num_cols, scales = "free_y") +
     scale_fill_brewer(palette = "Paired") +
     labs(title = paste("Monthly Percentage of BHS Detections by Gender in", region, "by Year"),
          x = "Month", 
@@ -622,9 +642,9 @@ for(region in unique_regions) {
   
   # Store the plotly object in the list
   plots_list[[region]] <- p_interactive
-  
 }
 
+# Output the list of plots
 htmltools::tagList(plots_list)
 ```
 
@@ -633,69 +653,74 @@ htmltools::tagList(plots_list)
 ### Bighorn Sheep: Age
 The following section summarizes BHS detections by Age.
 
-#### Percentage of Bighorn Sheep Detections by Age:
+#### Overall Count & Percentage of Bighorn Sheep Detections by Age:
 
 The following graph demonstrates the overall detection of Bighorn Sheep by age.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning = FALSE}
+
+#Combine unknown & unknown/other
+sheep_standardize <- sheep_standardize %>%
+  mutate(Age_Species1 = ifelse(Age_Species1 == "Unknown/Other", "Unknown", Age_Species1))
+
+#get rid of rows where the age is unknown
+sheep_standardize <- sheep_standardize %>%
+  filter(!is.na(Age_Species1))
+
 
 unique_age_names <- unique(sheep_standardize$Age_Species1)
-
 unique_age_names_no_na <- unique_age_names[!is.na(unique_age_names)]
 
-sheep_standardize$Age_Species1 <- ifelse(sheep_standardize$Age_Species1 %in% c(unique_age_names_no_na), sheep_standardize$Age_Species1, 'Unknown/Other')
+coul <- RColorBrewer::brewer.pal(length(unique_age_names_no_na), "Paired")
 
-coul <- brewer.pal(length(unique_age_names), "Set3")
-counts2 <- table(sheep_standardize$Age_Species1)
-midpoints <- barplot(counts2, main="Total Count of Bighorn Sheep Detection by Age",
-   xlab="Age",
-   ylab= 'Total Count',
-   col=coul,
-   ylim=c(0, max(counts2) + 20)
-   )
-text(midpoints, counts2, labels=counts2, pos=3, cex=0.8)
+counts2 <- sheep_standardize %>%
+  group_by(Age_Species1) %>%
+  dplyr::summarize(Total = sum(Count_Species1), na.rm=TRUE) %>%
+  ungroup()
+
+counts2 <- setNames(counts2$Total, counts2$Age_Species1)
+
+interactive_bar <- plot_ly(
+  x = names(counts2),
+  y = counts2,
+  type = 'bar',
+  marker = list(color = coul),
+  name = 'Total Count'
+) %>%
+  layout(
+    title = "Overall Count of Bighorn Sheep Detection by Age",
+    xaxis = list(title = "Sex"),
+    yaxis = list(title = "Total Count"),
+    barmode = 'group'
+  )
+interactive_bar
+
+
 
 ```
 
-
-```{r, echo=FALSE}
-
-unique_age_names <- unique(sheep_standardize$Age_Species1)
-
-unique_age_names_no_na <- unique_age_names[!is.na(unique_age_names)]
-
-sheep_standardize$Age_Species1 <- ifelse(sheep_standardize$Age_Species1 %in% c(unique_age_names_no_na), sheep_standardize$Age_Species1, 'Unknown/Other')
-
-coul <- brewer.pal(length(unique_age_names), "Set3")
-counts_age <- table(sheep_standardize$Age_Species1)
-midpoints <- barplot(counts_age, main="Total Count of Bighorn Sheep Detection by Age",
-   xlab="Age",
-   ylab= 'Total Count',
-   col=coul,
-   ylim=c(0, max(counts_age) + 20)
-   )
-text(midpoints, counts_age, labels=counts_age, pos=3, cex=0.8)
-
-```
 
 ``` {r, echo=FALSE}
 
-total_counts_age <- sum(counts_age)
-percentages <- round(100 * counts / total_counts_age, 1)
+total_counts_age <- sum(counts2)
+percentages <- round(100 * counts2 / total_counts_age, 1)
+labels <- paste(names(counts2), "-", percentages, "%", sep="")
 
-#lables with percentages
-labels <- paste(names(counts_age), "-", percentages, "%", sep="")
+# Create an interactive pie chart using plotly
+p <- plot_ly(labels = labels, values = counts2, type = 'pie', 
+             textinfo = 'label+percent', hoverinfo = 'label+percent+value',
+             marker = list(colors = coul)) %>%
+  layout(title = 'Percentage of Total Bighorn Sheep Detection by Age')
 
-# Plot pie chart
-pie(counts_age, labels = labels, col = brewer.pal(length(counts_age), "Set2"),
-    main="Percentage of Total Bighorn Sheep Detection by Age")
+# Display the plot
+p
 ```
 
-### Parkwide Annual Detection of Bighorn Sheep by Age
+#### Park-wide Annual Detection of Bighorn Sheep by Age
 
 The following section will showcase all Bighorn Sheep Detections by Age in the respective year provided by the files:
 
-``` {r, fig.width = 8, echo = FALSE}
+``` {r, fig.width = 10, echo = FALSE}
 
 # aggregate counts by year and sex
 sheep_standardize$Year <- as.numeric(format(as.POSIXct(sheep_standardize$DateTime, tz = "UTC"), "%Y"))
@@ -714,13 +739,12 @@ plot_df <- detailed_counts %>%
   left_join(yearly_totals, by = "Year") %>%
   mutate(percent = round(100 * count / total_counts, 1))
 
-# Plotting the 
-
-ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Age_Species1)) +
+# Plotting
+pa <- ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Age_Species1)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.8) + # Use dodge to place bars side by side
   geom_text(aes(label = paste(percent, "%")), position = position_dodge(width = 0.6), vjust = -0.25, size=3) +
-  scale_fill_brewer(palette = "Set3", name = "Age") + # Set a color palette and name the legend as "Age"
-  labs(title = "Annual Percentage of Bighorn Sheep by Year and Age (Parkwide)",
+  scale_fill_brewer(palette = "Paired", name = "Age") + # Set a color palette and name the legend as "Age"
+  labs(title = "Annual Percentage of Bighorn Sheep by Year and Age (Park-wide)",
        x = "Year", 
        y = "Percentage") +
   theme_minimal() + # Use a minimal theme for a cleaner look
@@ -728,12 +752,19 @@ ggplot(plot_df, aes(x = factor(Year), y = percent, fill = Age_Species1)) +
         legend.text = element_text(size = 10), # Adjust legend text size
         plot.title = element_text(hjust = -0.5)) # Center the plot title
 
+ggplotly(pa)
+
 ```
 
 
-### Here is the Same Visualization as Before with More Insight into the Monthly Statistic:
+#### Park-wide Annual & Monthly Detection of Bighorn Sheep by Age
 
 ``` {r, fig.width = 8, echo = FALSE}
+
+years_with_data <- unique(plot_df_monthly_complete$Year[!is.na(plot_df_monthly_complete$percent)])
+
+# Calculate the number of columns for the facet_wrap based on the number of years with data
+num_cols <- ifelse(length(years_with_data) > 3, 2, 1)
 
 sheep_standardize$Month <- as.numeric(format(as.POSIXct(sheep_standardize$DateTime, tz = "UTC"), "%m"))
 unique_months <- unique(sheep_standardize$Month)
@@ -773,19 +804,19 @@ dodge_width <- 0.7
 
 p2 <- ggplot(plot_df_monthly_complete, aes(x = Month, y = percent, fill = Age_Species1)) + 
   geom_bar(stat = "identity", position = position_dodge()) + 
-  facet_wrap(~Year, ncol = 1, scales = "free_y") + 
+  facet_wrap(~Year, ncol = num_cols, scales = "free_y") + 
   scale_fill_brewer(palette = "Paired", name = "Age") + 
   labs(title = "Monthly Percentage of Bighorn Sheep Detections by Age and Year",
        x = "Month", 
        y = "Percentage") + 
   theme_minimal() + 
-  theme(axis.text.x = element_text( vjust = 1, hjust=1))
+  theme(axis.text.x = element_text( vjust = 1, hjust=1, angle=90))
 
-p2
-
-print(plot_df_monthly_complete)
+ggplotly(p2)
 
 ```
+
+#### Regional Detection of Bighorn Sheep by Age
 
 ``` {r, echo = FALSE}
 
@@ -801,10 +832,7 @@ sheep_age_by_region <- sheep_standardize %>%
 
 ```
 
-``` {r, echo = FALSE}
-
-library(plotly)
-
+```{r, echo=FALSE}
 p3 <- ggplot(sheep_age_by_region, aes(fill = Age_Species1, y = proportion, x = Region)) +
   geom_bar(position = "fill", stat = "identity") +
   scale_y_continuous(labels = scales::percent_format()) +
@@ -816,8 +844,10 @@ p3 <- ggplot(sheep_age_by_region, aes(fill = Age_Species1, y = proportion, x = R
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ggplotly(p3)
-# Display the interactive plot
+```
 
+
+``` {r, echo = FALSE}
 p4 <- ggplot(sheep_age_by_region, aes(x = Region, y = proportion, fill = Age_Species1)) +
   geom_bar(stat = "identity") +
   scale_fill_brewer(palette = "Paired") +
@@ -834,7 +864,7 @@ ggplotly(p4)
 
 ```
 
-### Annual Percentage of BHS Dections by Region and Age
+#### Annual Percentage of BHS Dections by Region and Age
 
 ``` {r, echo = FALSE}
 
@@ -849,9 +879,9 @@ sheep_age_by_region <- sheep_standardize %>%
 dodge <- position_dodge(width=0.8)
 p <- ggplot(sheep_age_by_region, aes(x = Region, y = percent, fill = Age_Species1)) + 
   geom_bar(stat = "identity", position = dodge, width = 0.7) + 
-  facet_wrap(~Year, ncol = 1, scales = "free_y") + 
+  facet_wrap(~Year, ncol = num_cols + 1, scales = "free_y") + 
   scale_fill_brewer(palette = "Paired", name = "Gender") + 
-  labs(title = "Annual Percentage of BHS Detections by Age and Region relative to Yearly Totals",
+  labs(title = "Annual Percentage of BHS Detections by Age and Region by Yearly Totals",
        x = "Region", 
        y = "Percentage") + 
   theme_minimal() + 
@@ -866,9 +896,9 @@ p_interactive
 
 ```
 
-### Percentage of BHS by Region, Year, Month, & Age
+#### Percentage of BHS by Region, Year, Month, & Age Relative to Region Totals
 
-``` {r, echo = FALSE, warnings = FALSE}
+``` {r, echo = FALSE, warnings = FALSE, message = FALSE}
 
 yearly_totals <- sheep_standardize %>%
   group_by(Year, Region) %>%
@@ -919,15 +949,34 @@ unique_regions <- unique(monthly_complete$Region)
 # Initialize a list to store the plots
 plots_list <- list()
 
-# Loop through each region and create the facetted plots
 for(region in unique_regions) {
-  # Filter the data for the current region
+  # Ensure region is a character string
+  region <- as.character(region)
+  
+  # Filter the data for the current region and years with data
   region_data <- filter(monthly_complete, Region == region)
+  
+  # Determine the years that actually have data
+  years_with_data <- region_data %>%
+    group_by(Year) %>%
+    summarise(Total = sum(Percentage, na.rm = TRUE)) %>%
+    filter(Total > 0) %>%
+    .$Year
+  
+  # Skip plotting for this region if there are no years with data
+  if(length(years_with_data) == 0) next
+  
+  # Filter the region_data for only years with data
+  region_data <- region_data %>%
+    filter(Year %in% years_with_data)
+  
+  # Determine the number of columns for faceting based on the years with data
+  num_cols <- ifelse(length(years_with_data) > 3, 2, 1)
   
   # Create the ggplot object
   p <- ggplot(region_data, aes(x = Month, y = Percentage, fill = Age_Species1)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-    facet_wrap(~Year, ncol = 1, scales = "free_y") +
+    facet_wrap(~Year, ncol = num_cols, scales = "free_y") +
     scale_fill_brewer(palette = "Paired") +
     labs(title = paste("Monthly Percentage of BHS Detections by Age in", region, "by Year"),
          x = "Month", 
@@ -936,14 +985,13 @@ for(region in unique_regions) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
   # Convert to a plotly interactive object
-   # Convert to a plotly interactive object
   p_interactive <- ggplotly(p)
   
   # Store the plotly object in the list
   plots_list[[region]] <- p_interactive
-  
 }
 
+# Output the list of plots
 htmltools::tagList(plots_list)
 
 ```
@@ -955,10 +1003,10 @@ htmltools::tagList(plots_list)
 
 The following represents the park wide camera counts by different years and regions that were located in the provided files.
 
-### Annual Parkwide Number of Cameras:
+### Annual Park-wide Number of Cameras:
 
-```{r cameras, echo=FALSE}
-#add something here to create the regionsite column if it doesn't exist by doing the combination of region and site
+```{r cameras, echo=FALSE, message = FALSE}
+#Create the Regionsite column if it does not already exist
 if (!"RegionSite" %in% names(photoData)) {
   photoData$RegionSite <- paste(photoData$Region, photoData$Site)
 }
@@ -974,7 +1022,7 @@ cameras_per_year <- photoData %>%
 pc <- ggplot(cameras_per_year, aes(x = Year, y = UniqueCameras, fill = RegionSite)) +
   geom_col() +
   theme_minimal() +
-  labs(title = "Annual Parkwide Number of Cameras by RegionSite",
+  labs(title = "Annual Park-wide Number of Cameras by RegionSite",
        x = "Year",
        y = "Total Number of Unique Cameras",
        fill = "RegionSite")
@@ -983,7 +1031,11 @@ ggplotly(pc)
 
 ```
 
-```{r cameramonth, echo=FALSE}
+### Unique Cameras per Month by RegionSite and Year
+
+```{r cameramonth, echo=FALSE, message = FALSE}
+num_cols <- ifelse(length(unique(photoData$Year)) >= 3, 2, 1)
+
 photoData$Month <- as.numeric(format(as.Date(photoData$DateTime), "%m"))
 
 cameras_per_year_month <- photoData %>%
@@ -1025,9 +1077,13 @@ ggplotly(p)
 
 ```
 
-## Number of Camera nights - from 8pm to 4am
+## Number of Camera Nights
 
-```{r, echo = FALSE}
+Nights are considered detections between 8pm to 4am.
+
+### Annual Park-wide Number of Cameras
+
+```{r, echo = FALSE, message = FALSE}
 photoData$Hour <- as.numeric(format(as.POSIXct(photoData$DateTime, tz = "America/New_York", force_tz = TRUE), "%H"))
 #nighttime hours - 8pm to 4am OR 20 to 4
 
@@ -1041,7 +1097,7 @@ cameras_per_year <- filtered_df %>%
 pc <- ggplot(cameras_per_year, aes(x = Year, y = UniqueCameras, fill = RegionSite)) +
   geom_col() +
   theme_minimal() +
-  labs(title = "Annual Parkwide Number of Night Cameras by RegionSite",
+  labs(title = "Annual Park-wide Number of Night Cameras by RegionSite",
        x = "Year",
        y = "Total Number of Unique Cameras",
        fill = "RegionSite")
@@ -1051,7 +1107,9 @@ ggplotly(pc)
 
 ```
 
-```{r, echo=FALSE}
+### Unique Night Cameras per Month by RegionSite and Year
+
+```{r, echo=FALSE, message = FALSE}
 cameras_per_year_month <- filtered_df %>%
   group_by(RegionSite, Year, Month) %>%
   summarise(UniqueCameras = sum(n_distinct(Camera))) %>%
@@ -1095,7 +1153,7 @@ ggplotly(p)
 
 ## Percentage of Detection By Species
 
-The following figures represent the percentage of detection by species between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
+The following figures represent the percentage of detection by all species between `r format(min_date, '%m/%d/%Y')` and `r format(max_date, '%m/%d/%Y')`.
 
 ```{r photoData_preprocessing, include=FALSE}
 #For species analysis, dropping instances of human:
@@ -1123,26 +1181,40 @@ for (x in unique_years) {
 ```
 
 ```{r, echo=FALSE}
-# Parkwide proportions - all time
+# Park-wide proportions - all time
 species1_proportions <- table(photoData$Species1) / nrow(photoData)
 ```
 
-### Parkwide Percentage of detections by species (All Time):
+### Park-wide Percentage of Detections by Species (All Years):
 
+<<<<<<< HEAD
+```{r, echo = FALSE}
+=======
 ```{r, figheight=20}
+>>>>>>> c1bc23f5a7b4cad15fba736ba4deeb7b558670f8
 labels <- names(species1_proportions)  # Labels for the pie chart
 values <- species1_proportions  # Values for the pie chart
 
 # Create an interactive pie chart
 p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
              marker = list(colors = rainbow(length(values))))
+<<<<<<< HEAD
+p <- p %>% layout(title = 'Park-wide Proportions of Species')
+=======
 p <- p %>% layout(title = 'Proportions of Species All Time')
+>>>>>>> c1bc23f5a7b4cad15fba736ba4deeb7b558670f8
 
 # Display the plot
 p
 ```
 
 
+<<<<<<< HEAD
+### Park-wide Yearly Percentage of detections by species:
+
+```{r years, echo = FALSE}
+pie_plots <- list()
+=======
 ### Parkwide Percentage of detections by species (Annual):
 ```{r years, echo=TRUE}
 library(plotly)
@@ -1150,12 +1222,27 @@ library(htmltools)
 
 # Initialize an empty list to store plots
 plots_list <- list()
+>>>>>>> c1bc23f5a7b4cad15fba736ba4deeb7b558670f8
 
 for (y in df_list) {
   species_proportions <- table(y$Species1) / nrow(y)
   year <- y$Year[1]
   labels <- names(species_proportions)  # Labels for the pie chart
   values <- species_proportions  # Values for the pie chart
+<<<<<<< HEAD
+  p <- plot_ly(labels = labels, values = values, type = 'pie', textinfo = 'label+percent',
+               marker = list(colors = rainbow(length(values)))) %>%
+       layout(title = paste('Proportions of Species in', year))
+  # Display the plot
+  # Add the plot to the list
+  pie_plots[[year]] <- p
+}
+# Display all plots together
+htmltools::tagList(pie_plots)
+```
+
+### Monthly Species Sightings by Year
+=======
 
   # Create an interactive pie chart
   p <- plot_ly(labels = labels, values = values, type = 'pie', textinfo = 'label+percent',
@@ -1200,6 +1287,7 @@ tagList(plots_list)
 
 ### Parkwide Counts of Detections by Species (Monthly/Annual):
 The set of charts below show the count of detections of species in a month of a given year
+>>>>>>> c1bc23f5a7b4cad15fba736ba4deeb7b558670f8
 
 ```{r, include = FALSE}
 species1_rows <- photoData %>%
@@ -1227,11 +1315,14 @@ species <- species %>%
 
 ```{r, echo=FALSE}
 
+
 # Aggregate sightings by day
 daily_sightings <- species %>%
   mutate(Date = as.Date(DateTime),     # Convert datetime to date
          Year = format(Date, "%Y"),    # Extract year
-         Month = format(Date, "%m")) %>% # Extract month as a string
+         Month = format(Date, "%m"),
+         Count_Species1 = ifelse(is.na(Count_Species1), 0, as.numeric(Count_Species1))) %>%
+  # Extract month as a string
   filter(!is.na(Species1)) %>%  # Exclude rows where Species1 is NA
   group_by(Year, Month, Species1) %>%
   dplyr::summarise(Sightings = sum(Count_Species1), .groups = 'drop')
@@ -1264,7 +1355,7 @@ ggplotly(p)
 
 ```
 
-### Regional Counts of Detections by Species (Monthly/Annual):
+### Regional Species Sightings (Monthly/Annual):
 
 ```{r, echo=FALSE}
 regions <- unique(species$Region)
@@ -1273,7 +1364,8 @@ daily_sightings <- species %>%
   mutate(Date = as.Date(DateTime),     # Convert datetime to date
          Year = format(Date, "%Y"),    # Extract year
          Month = format(Date, "%m"),   # Extract month as a string
-         Region = Region) %>% 
+         Region = Region,
+         Count_Species1 = ifelse(is.na(Count_Species1), 0, as.numeric(Count_Species1))) %>% 
   filter(!is.na(Species1)) %>%  # Ensure Region is carried through
   group_by(Region, Year, Month, Species1) %>%
   summarise(Sightings = sum(Count_Species1), .groups = 'drop')
