@@ -13,8 +13,6 @@ ABOUT: The animal_data_markdown is a dynamic Rmd which summarizes trends from mo
 4) Percentage of Detection by Species
 These are separated within the animal_data_markdown.Rmd file by dashed lines ------ and a new title for each section. 
 
-SUGGESTIONS: The file is equipped to run multiple years of timelapse data into one report, however for readability, it is recommended that excel files contain a maximum of 6 years of data at a time. 
-
 DIRECTIONS:
 1) Necessary libraries: The first code from lines 14-42 downloads all necessary libraries associated with this project. If there are errors in from this section then a specific library may be missing locally. Run the below code with the missing library to update this:
     if (!require('library')) install.packages('library')
