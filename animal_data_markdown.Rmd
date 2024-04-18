@@ -1144,8 +1144,13 @@ p
 
 
 ### Parkwide Percentage of detections by species (Annual):
+```{r years, echo=TRUE}
+library(plotly)
+library(htmltools)
 
-```{r years}
+# Initialize an empty list to store plots
+plots_list <- list()
+
 for (y in df_list) {
   species_proportions <- table(y$Species1) / nrow(y)
   year <- y$Year[1]
@@ -1153,32 +1158,44 @@ for (y in df_list) {
   values <- species_proportions  # Values for the pie chart
 
   # Create an interactive pie chart
-  p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
-             marker = list(colors = rainbow(length(values))))
-  p <- p %>% layout(title = paste('Proportions of Species in', year))
+  p <- plot_ly(labels = labels, values = values, type = 'pie', textinfo = 'label+percent',
+               marker = list(colors = rainbow(length(values)))) %>%
+       layout(title = paste('Proportions of Species in', year))
 
-  # Display the plot
-  print(p)
+  # Add the plot to the list
+  plots_list[[length(plots_list) + 1]] <- p
 }
+
+# Display all plots together
+tagList(plots_list)
 ```
 ### Parkwide Percentage of detections by species (Monthly):
+```{r months, echo=TRUE}
+library(plotly)
+library(htmltools)
 
-```{r years}
+# Initialize an empty list to store plots
+plots_list <- list()
+
 for (m in sort(unique(photoData$month))) {
-  monthData = photoData[photoData$month == m, ]
+  monthData <- photoData[photoData$month == m, ]
   species_proportions <- table(monthData$Species1) / nrow(monthData)
   monthName <- monthData$monthName[1]
   labels <- names(species_proportions)  # Labels for the pie chart
   values <- species_proportions  # Values for the pie chart
 
   # Create an interactive pie chart
-  p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
-             marker = list(colors = rainbow(length(values))))
-  p <- p %>% layout(title = paste('Proportions of Species in', monthName))
+  p <- plot_ly(labels = labels, values = values, type = 'pie', textinfo = 'label+percent',
+               marker = list(colors = rainbow(length(values)))) %>%
+       layout(title = paste('Proportions of Species in', monthName))
 
-  # Display the plot
-  print(p)
+  # Add the plot to the list
+  plots_list[[length(plots_list) + 1]] <- p
 }
+
+# Display all plots together
+tagList(plots_list)
+
 ```
 
 ### Parkwide Counts of Detections by Species (Monthly/Annual):
