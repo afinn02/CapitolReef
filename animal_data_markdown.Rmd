@@ -1129,15 +1129,6 @@ species1_proportions <- table(photoData$Species1) / nrow(photoData)
 
 ### Parkwide Percentage of detections by species (All Time):
 
-```{r, echo=FALSE}
-# Create a pie chart
-pie(species1_proportions, labels = NA, main = "Proportions of Species", col = rainbow(length(species1_proportions)))
-
-# Add labels with adjusted size
-legend("topright", legend = names(species1_proportions), fill = rainbow(length(species1_proportions)), cex = 0.8, xpd = TRUE)
-
-```
-
 ```{r, figheight=20}
 labels <- names(species1_proportions)  # Labels for the pie chart
 values <- species1_proportions  # Values for the pie chart
@@ -1145,7 +1136,7 @@ values <- species1_proportions  # Values for the pie chart
 # Create an interactive pie chart
 p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
              marker = list(colors = rainbow(length(values))))
-p <- p %>% layout(title = 'Proportions of Species')
+p <- p %>% layout(title = 'Proportions of Species All Time')
 
 # Display the plot
 p
@@ -1158,16 +1149,40 @@ p
 for (y in df_list) {
   species_proportions <- table(y$Species1) / nrow(y)
   year <- y$Year[1]
+  labels <- names(species_proportions)  # Labels for the pie chart
+  values <- species_proportions  # Values for the pie chart
 
-  # Create a pie chart
-  pie(species_proportions, labels = NA, main = paste("Proportions of Species", year), col = rainbow(length(species_proportions)))
+  # Create an interactive pie chart
+  p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
+             marker = list(colors = rainbow(length(values))))
+  p <- p %>% layout(title = paste('Proportions of Species in', year))
 
-  # Add labels with adjusted size
-  legend("topright", legend = names(species_proportions), fill = rainbow(length(species_proportions)), cex = 0.8, xpd = TRUE)
+  # Display the plot
+  print(p)
+}
+```
+### Parkwide Percentage of detections by species (Monthly):
+
+```{r years}
+for (m in sort(unique(photoData$month))) {
+  monthData = photoData[photoData$month == m, ]
+  species_proportions <- table(monthData$Species1) / nrow(monthData)
+  monthName <- monthData$monthName[1]
+  labels <- names(species_proportions)  # Labels for the pie chart
+  values <- species_proportions  # Values for the pie chart
+
+  # Create an interactive pie chart
+  p <- plot_ly(labels = labels, values = values, type = 'pie',textinfo = 'label+percent',
+             marker = list(colors = rainbow(length(values))))
+  p <- p %>% layout(title = paste('Proportions of Species in', monthName))
+
+  # Display the plot
+  print(p)
 }
 ```
 
 ### Parkwide Counts of Detections by Species (Monthly/Annual):
+The set of charts below show the count of detections of species in a month of a given year
 
 ```{r, include = FALSE}
 species1_rows <- photoData %>%
