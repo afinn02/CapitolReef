@@ -17,17 +17,17 @@ DIRECTIONS:
 1) Necessary libraries: The first code from lines 14-42 downloads all necessary libraries associated with this project. If there are errors in from this section then a specific library may be missing locally. Run the below code with the missing library to update this:
     if (!require('library')) install.packages('library')
     library('library')
-![alt text](image-2.png)
+![alt text](Data/image-2.png)
 
 2) Modifying the file path: The following code block from lines 46-71 contains a "file_path" variable with the comment "MODIFY FILE PATH HERE". Alter the path of that variable to match the location of the file you want to run. The file you run should be downloaded locally.
-![alt text](image-1.png)
+![alt text](Data/image-1.png)
 FILE FORMATS: The files provided should match the formats and structure of the "TimelapseDataMerged.CSV" and/or "PhotoWildlifeData_UMichDataShare_12042023.xlsx" files provided within the "Data" folder of the repository. These files were used to create the report, so other formats will cause errors.
 
 3) knitt the document
 
 4) The animal_data_markdown.html will update with each knitt. To save a document of this report:
     - Select open in browser
-    ![alt text](document_save_tutorial1-1.png)
+    ![alt text](Data/document_save_tutorial1-1.png)
     - Double click and select "Save As". Save as type Webpage, Complete in the desired location.
 
 
